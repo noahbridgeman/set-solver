@@ -169,9 +169,9 @@ class FrameResult:
 
 class LivePipeline:
     def __init__(self, recognizer: Recognizer, min_conf: float = 0.8, min_hits: int = 2, max_misses_show: int = 2,
-                 edge_margin: float = 0.015):
+                 edge_margin: float = 0.015, edge_min_card: float = 0.9, edge_min_conf: float = 0.9):
         self.rec = recognizer
-        self.edge_margin = edge_margin
+        self.edge_margin, self.edge_min_card, self.edge_min_conf = edge_margin, edge_min_card, edge_min_conf
         self.tracker = Tracker(min_conf=min_conf, confirm_frames=min_hits)
         self.min_conf, self.min_hits, self.max_misses_show = min_conf, min_hits, max_misses_show
 
@@ -181,15 +181,18 @@ class LivePipeline:
         t1 = time.perf_counter()
         probs, p_card = self.rec.classify(frame, kps)
         keep = p_card >= 0.5  # Fehlalarme des Detektors (Untergrund, Papier, Tuch) verwerfen
-        kps, probs = kps[keep], probs[keep]
+        kps, probs, p_card = kps[keep], probs[keep], p_card[keep]
         t2 = time.perf_counter()
         # Karten am Bildrand sind oft angeschnitten; der Detektor rät die fehlenden Ecken dann, auch
-        # innerhalb des Bildes. Deshalb gilt eine Karte nur als vollständig, wenn alle Ecken einen
-        # Mindestabstand zum Rand haben.
+        # innerhalb des Bildes. Eine Karte zählt, wenn alle Ecken einen Mindestabstand zum Rand haben,
+        # oder wenn sie nur leicht angeschnitten ist: dann ist der Klassifikator sich sicher, dass es eine
+        # Karte ist und was darauf ist. Stark angeschnittene Karten fallen durch (P(Karte) sinkt dort stark).
         h, w = frame.shape[:2]
         m = self.edge_margin * min(h, w)
         x, y = kps[..., 0], kps[..., 1]
-        valid = ((x >= m) & (x <= w - 1 - m) & (y >= m) & (y <= h - 1 - m)).all(1)
+        inside = ((x >= m) & (x <= w - 1 - m) & (y >= m) & (y <= h - 1 - m)).all(1)
+        sure_edge = (p_card >= self.edge_min_card) & (probs.max(2).min(1) >= self.edge_min_conf)
+        valid = inside | sure_edge
         tracks = self.tracker.update(kps, probs, valid)
         cards = [t for t in tracks if t.confirmed and t.misses <= self.max_misses_show]
         # Sets nur aus Karten, die gerade sicher erkannt sind (gelbe Karten zählen nicht)
