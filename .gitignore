@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+.DS_Store
+# erzeugte Daten (jederzeit neu erzeugbar)
+data/crops/
+data/compare/
+data/geometry_debug/
+data/templates/png/
+data/synth/
+data/real/
+data/backgrounds/raw_patches/
+runs/
+# Originalfotos: groß und mit GPS-Daten -> nur lokal (Backup in iCloud)
+data/raw/
+# vortrainierte Startgewichte, lädt ultralytics automatisch
+yolo26n-pose.pt
