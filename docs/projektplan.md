@@ -93,7 +93,7 @@ Nächster Schritt ist die Echtzeit-Pipeline am PC; parallel das echte Testset (1
 - [x] 2. Synthetischen Datengenerator auf Basis des Renderers bauen (v1; wird anhand der echten Fehler weiter verbessert)
 - [x] 3. Detektor mit Eck-Keypoints trainieren (v1, siehe Ergebnisse)
 - [x] 4. Attribut-Klassifikator trainieren (v1, siehe Ergebnisse)
-- [ ] 5. Echtzeit-Pipeline am PC: Webcam oder Handy-Stream, dazu Tracking, Solver und Overlay
+- [ ] 5. Echtzeit-Pipeline am PC: Webcam oder Handy-Stream, dazu Tracking, Solver und Overlay (v1 steht, Test mit iPhone-Kamera offen)
 - [ ] 6. Auf echten Daten auswerten, Fehler analysieren, nachtrainieren, wiederholen
 - [ ] 7. Auf Handy portieren, danach auf den Pi
 
@@ -113,6 +113,16 @@ Erkenntnisse:
 - Bei conf 0,5 gab es einen Fehlalarm (weißes Tuch am Bildrand, conf 0,50) → Schwelle 0,6.
 - Training auf dem Mac: Batch 32 mit 6 Workern sprengt die 16 GB RAM. Funktioniert mit `--batch 16 --workers 3` und `PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.6 PYTORCH_MPS_LOW_WATERMARK_RATIO=0.5`.
 - Das echte Testset ist klein und einfach (Draufsicht, dunkler Grund, wenige Karten pro Foto). Aussagekräftig wird erst das Video-Testset (1c).
+
+## Echtzeit-Pipeline v1 (2026-11-16)
+
+`python scripts/live.py --source <Kamera-Nr. | Video | Foto/Ordner>` (Code in `setcards/live.py`, Solver in `setcards/solver.py`). Kamera: iPhone über „Integrierte Kamera“, Index mit `--list-cameras`.
+
+- Ablauf je Bild: Detektor (640 px) → jede Karte aus dem Originalbild auf 128×192 entzerren → Klassifikator mit 0°/180° → Tracking → Sets → Overlay.
+- Tracking: Zuordnung über die Kartenmitte (Hungarian), Ecken und Wahrscheinlichkeiten geglättet. Eine Karte erscheint erst, wenn sie in 2 Bildern sicher erkannt wurde (jedes Attribut ≥ 0,8), und verschwindet, wenn die geglättete Sicherheit unter 0,5 fällt. Karten, die aus dem Bild ragen, behalten ihr Label.
+- Tempo am M2 Pro: ca. 29 ms pro 1080p-Bild (Detektor ~12 ms, Klassifikator ~16 ms für 9 Karten), mit Anzeige ca. 24 fps.
+- Test mit künstlichem Kameraschwenk über ein Rohfoto (Drehung, Zoom, Bewegungsunschärfe): vorher 292 von 2.143 Erkennungen falsch, fast alles Fehlalarme auf hellem Holz und halb sichtbare Karten. Mit Bestätigung und Randregel: 0 falsche Labels.
+- Erkenntnis für v2: Der Detektor hält helle, glatte Flächen (Holz) gelegentlich für Karten. Im Generator gezielt solche Flächen als Hintergrund und Störobjekte („leere Karten“) einbauen; eventuell eine Klasse „keine Karte“ im Klassifikator.
 
 ## Offene Fragen
 
