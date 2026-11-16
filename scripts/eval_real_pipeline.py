@@ -3,8 +3,8 @@
 Misst pro Karte: gefunden? Eckfehler (in % der kurzen Kartenkante), Attribute richtig?
 Die echten Karten wurden nie zum Training oder zur Modellauswahl benutzt.
 
-Aufruf:  python scripts/eval_real_pipeline.py [--det models/detector_v1.pt]
-                                              [--cls models/classifier_v1.pt]
+Aufruf:  python scripts/eval_real_pipeline.py [--det models/detector_v2.pt]
+                                              [--cls models/classifier_v2.pt]
 """
 from __future__ import annotations
 
@@ -32,8 +32,8 @@ def to_card_order(c: np.ndarray) -> np.ndarray:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--det", default=str(ROOT / "models/detector_v1.pt"))
-    ap.add_argument("--cls", default=str(ROOT / "models/classifier_v1.pt"))
+    ap.add_argument("--det", default=str(ROOT / "models/detector_v2.pt"))
+    ap.add_argument("--cls", default=str(ROOT / "models/classifier_v2.pt"))
     ap.add_argument("--imgsz", type=int, default=640)
     ap.add_argument("--conf", type=float, default=0.6)
     ap.add_argument("--device", default="mps")
@@ -43,7 +43,7 @@ def main() -> None:
     det = YOLO(a.det)
     ck = torch.load(a.cls, map_location="cpu", weights_only=False)
     net = CardNet(pretrained=False)
-    net.load_state_dict(ck["model"])
+    net.load_state_dict(ck["model"], strict=False)
     net.eval().to(a.device)
 
     labels = json.loads((CROPS / "labels.json").read_text())
@@ -53,12 +53,20 @@ def main() -> None:
 
     out_dir = ROOT / "runs" / "pipeline_real"
     out_dir.mkdir(parents=True, exist_ok=True)
-    n_gt = n_found = n_fp = n_ok = 0
+    n_gt = n_found = n_fp = n_ok = n_rej = 0
     errs, wrong = [], []
     for src, cards in sorted(by_src.items()):
         img = cv2.imread(str(RAW / src))
         r = det.predict(img, imgsz=a.imgsz, conf=a.conf, device=a.device, verbose=False)[0]
         kps = r.keypoints.xy.cpu().numpy() if r.keypoints is not None else np.zeros((0, 4, 2))
+        # Fehlalarme verwerfen, die der Klassifikator als "keine Karte" erkennt (ab Klassifikator v2)
+        if len(kps) and "card" in net.heads and "heads.card.weight" in ck["model"]:
+            xs = torch.stack([to_tensor(np.ascontiguousarray(warp_crop(img, k.astype(np.float64))[..., ::-1]))
+                              for k in kps]).to(a.device)
+            with torch.no_grad():
+                pc = (net(xs)["card"].softmax(1) + net(torch.flip(xs, dims=(2, 3)))["card"].softmax(1))[:, 1] / 2
+            n_rej += int((pc < 0.5).sum())
+            kps = kps[(pc >= 0.5).cpu().numpy()]
         used = set()
         vis = img.copy()
         for name, m in cards:
@@ -92,7 +100,8 @@ def main() -> None:
         cv2.imwrite(str(out_dir / Path(src).with_suffix(".jpg").name), vis, [cv2.IMWRITE_JPEG_QUALITY, 80])
 
     errs = np.array(errs)
-    print(f"Karten {n_gt}: gefunden {n_found}, Fehlalarme {n_fp}, komplett richtig erkannt {n_ok}")
+    print(f"Karten {n_gt}: gefunden {n_found}, Fehlalarme {n_fp} (dazu {n_rej} vom Klassifikator verworfen), "
+          f"komplett richtig erkannt {n_ok}")
     print(f"Eckfehler (% kurze Kante): Median {np.median(errs):.2f}, 95% {np.percentile(errs, 95):.2f}, "
           f"max {errs.max():.2f}")
     for w in wrong:

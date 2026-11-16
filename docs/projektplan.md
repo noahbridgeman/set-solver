@@ -124,6 +124,16 @@ Erkenntnisse:
 - Test mit künstlichem Kameraschwenk über ein Rohfoto (Drehung, Zoom, Bewegungsunschärfe): vorher 292 von 2.143 Erkennungen falsch, fast alles Fehlalarme auf hellem Holz und halb sichtbare Karten. Mit Bestätigung und Randregel: 0 falsche Labels.
 - Erkenntnis für v2: Der Detektor hält helle, glatte Flächen (Holz) gelegentlich für Karten. Im Generator gezielt solche Flächen als Hintergrund und Störobjekte („leere Karten“) einbauen; eventuell eine Klasse „keine Karte“ im Klassifikator.
 
+## Modelle v2 (2026-11-16)
+
+Anlass: Live-Test mit dem iPhone. Bei normalen Schrägaufnahmen war alles richtig; bei sehr flachem Blick (65–75°) fand der Detektor nur einen Teil der Karten, angeschnittene Karten am Bildrand bekamen falsche Labels, und ein weißes Tuch wurde für eine Karte gehalten.
+
+- Generator v2 (`data/synth/v2`, 10.000 Szenen, Detektorbilder 640 px): 35 % flacher Blick (40–78°), 25 % Nahaufnahmen mit angeschnittenen Karten, Tiefenunschärfe. Fix: Kamera hält ≥ 10 cm Abstand zu allen Karten, Schattenunschärfe begrenzt (vorher Speicherüberlauf bis zum Absturz des Macs). Generator mit `--workers 3` und `nice` laufen lassen; eine Szene braucht bis ca. 0,9 GB.
+- Detektor v2 (`models/detector_v2.pt`): vom v1 aus 15 Epochen auf v2 weitertrainiert (ca. 3 h mit niedriger Priorität). Recall auf v2-Validierung 96,3 % → 98,9 %, auf v1-Validierung unverändert; echtes Mini-Testset 91/91, Eckfehler Median 3,3 %.
+- Klassifikator v2 (`models/classifier_v2.pt`): neuer Kopf „ist das eine Karte?“, trainiert mit Negativbeispielen (Untergrund aus den Szenen, echte Hintergründe, stark vergrößertes leeres Kartenpapier). Vom v1 aus 8 Epochen auf v1+v2 (ca. 45 min). Ganze Karte: v1-Val 99,96 %, v2-Val 99,90 % (alter Klassifikator: 99,51 %), 100 % der Negativbeispiele abgelehnt, echte Karten 100 %. Die 3 Fehlalarme des Detektors auf den Rohfotos verwirft er alle (P(Karte) ≈ 0,03).
+- Live-Pipeline: Erkennungen mit P(Karte) < 0,5 werden verworfen; Karten gelten nur als vollständig, wenn alle Ecken ≥ 1,5 % der Bildhöhe vom Rand entfernt sind; Sets nur aus sicher erkannten Karten (≥ 0,8).
+- Ergebnis auf den 7 Live-Schnappschüssen (`data/real/live_snaps`): alle angezeigten Labels und Sets richtig. Nicht angezeigt werden noch angeschnittene Karten und einzelne stark unscharfe Karten im Hintergrund (Sicherheit knapp unter 0,8).
+
 ## Offene Fragen
 
 - iOS oder Android? Das entscheidet zwischen CoreML/Swift, TFLite/Kotlin oder Flutter für beides.

@@ -21,8 +21,8 @@ from .solver import find_sets
 from .synth import warp_crop
 
 ATTR_KEYS = list(ATTRS)
-DEFAULT_DET = ROOT / "models" / "detector_v1.pt"
-DEFAULT_CLS = ROOT / "models" / "classifier_v1.pt"
+DEFAULT_DET = ROOT / "models" / "detector_v2.pt"
+DEFAULT_CLS = ROOT / "models" / "classifier_v2.pt"
 
 
 def pick_device(name: str = "auto") -> str:
@@ -43,7 +43,8 @@ class Recognizer:
         self.imgsz, self.conf = imgsz, conf
         ck = torch.load(str(cls), map_location="cpu", weights_only=False)
         self.cls = CardNet(pretrained=False)
-        self.cls.load_state_dict(ck["model"])
+        missing, _ = self.cls.load_state_dict(ck["model"], strict=False)
+        self.has_card_head = "heads.card.weight" not in missing  # ab Klassifikator v2
         self.cls.eval().to(self.device)
 
     def detect(self, frame: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -54,15 +55,19 @@ class Recognizer:
         return r.keypoints.xy.cpu().numpy().astype(np.float64), r.boxes.conf.cpu().numpy()
 
     @torch.no_grad()
-    def classify(self, frame: np.ndarray, kps: np.ndarray) -> np.ndarray:
-        """-> Wahrscheinlichkeiten (N, 4 Attribute, 3 Klassen), Mittel über 0°/180°."""
+    def classify(self, frame: np.ndarray, kps: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """-> Wahrscheinlichkeiten (N, 4 Attribute, 3 Klassen) und P(ist Karte) (N,), Mittel über 0°/180°."""
         if len(kps) == 0:
-            return np.zeros((0, len(ATTR_KEYS), 3))
+            return np.zeros((0, len(ATTR_KEYS), 3)), np.zeros(0)
         crops = [to_tensor(np.ascontiguousarray(warp_crop(frame, k)[..., ::-1])) for k in kps]
         x = torch.stack(crops).to(self.device)
         o1, o2 = self.cls(x), self.cls(torch.flip(x, dims=(2, 3)))
         p = torch.stack([(o1[k].softmax(1) + o2[k].softmax(1)) / 2 for k in ATTR_KEYS], 1)
-        return p.cpu().numpy()
+        if self.has_card_head:
+            pc = ((o1["card"].softmax(1) + o2["card"].softmax(1)) / 2)[:, 1]
+        else:
+            pc = torch.ones(len(p))
+        return p.cpu().numpy(), pc.cpu().numpy()
 
 
 # ================================================================== Tracking
@@ -174,7 +179,9 @@ class LivePipeline:
         t0 = time.perf_counter()
         kps, _ = self.rec.detect(frame)
         t1 = time.perf_counter()
-        probs = self.rec.classify(frame, kps)
+        probs, p_card = self.rec.classify(frame, kps)
+        keep = p_card >= 0.5  # Fehlalarme des Detektors (Untergrund, Papier, Tuch) verwerfen
+        kps, probs = kps[keep], probs[keep]
         t2 = time.perf_counter()
         # Karten am Bildrand sind oft angeschnitten; der Detektor rät die fehlenden Ecken dann, auch
         # innerhalb des Bildes. Deshalb gilt eine Karte nur als vollständig, wenn alle Ecken einen
