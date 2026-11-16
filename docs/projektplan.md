@@ -85,7 +85,7 @@ Zuerst das Handy als Ziel, dort sind Kamera und Rechenleistung besser. Der Pi fo
 
 ## Phasenplan
 
-Nächster Schritt ist die Echtzeit-Pipeline am PC; parallel das echte Testset (1c). Phase 6 läuft als Schleife, bis die Zielgenauigkeit erreicht ist.
+Pipeline am Mac und iPhone-App laufen. Nächster Schritt: Nachtraining mit Gegenbeispielen (Schilder, Papier) und echtes Testset (1c). Phase 6 läuft als Schleife, bis die Zielgenauigkeit erreicht ist.
 
 - [x] 1a. 81 Karten fotografieren, ausschneiden und labeln
 - [x] 1b. Vektor-Nachbau aller 81 Karten (Renderer + Vergleich mit den Fotos)
@@ -93,9 +93,9 @@ Nächster Schritt ist die Echtzeit-Pipeline am PC; parallel das echte Testset (1
 - [x] 2. Synthetischen Datengenerator auf Basis des Renderers bauen (v1; wird anhand der echten Fehler weiter verbessert)
 - [x] 3. Detektor mit Eck-Keypoints trainieren (v1, siehe Ergebnisse)
 - [x] 4. Attribut-Klassifikator trainieren (v1, siehe Ergebnisse)
-- [ ] 5. Echtzeit-Pipeline am PC: Webcam oder Handy-Stream, dazu Tracking, Solver und Overlay (v1 steht, Test mit iPhone-Kamera offen)
+- [x] 5. Echtzeit-Pipeline am PC: Webcam oder Handy-Stream, dazu Tracking, Solver und Overlay
 - [ ] 6. Auf echten Daten auswerten, Fehler analysieren, nachtrainieren, wiederholen
-- [ ] 7. Auf Handy portieren, danach auf den Pi
+- [ ] 7. Auf Handy portieren (iPhone-App v1 läuft, siehe unten), danach auf den Pi
 
 ## Ergebnisse v1 (2026-11-16)
 
@@ -134,9 +134,19 @@ Anlass: Live-Test mit dem iPhone. Bei normalen Schrägaufnahmen war alles richti
 - Live-Pipeline: Erkennungen mit P(Karte) < 0,5 werden verworfen; Karten gelten nur als vollständig, wenn alle Ecken ≥ 1,5 % der Bildhöhe vom Rand entfernt sind; Sets nur aus sicher erkannten Karten (≥ 0,8).
 - Ergebnis auf den 7 Live-Schnappschüssen (`data/real/live_snaps`): alle angezeigten Labels und Sets richtig. Nicht angezeigt werden noch angeschnittene Karten und einzelne stark unscharfe Karten im Hintergrund (Sicherheit knapp unter 0,8).
 
+## Live-Pipeline: Randregel (2026-11-16)
+
+Angeschnittene Karten zählen jetzt auch, wenn der Klassifikator sich sicher ist (P(Karte) ≥ 0,9 und jedes Attribut ≥ 0,9). Auf den 8 Live-Bildern waren alle so zugelassenen Randkarten richtig; stark angeschnittene Karten fallen weiter durch (P(Karte) 0,02–0,18). Weitwinkel-Video (0.5×, 286 Bilder, Bibliothek): in 280 Bildern alle Labels richtig, nie ein falsches Set; einziger Fehler ein weißes Schild mit QR-Code in 6 Bildern einer schnellen Bewegung (unsicher, in keinem Set).
+
+## iPhone-App v1 (2026-11-16)
+
+- Ordner `ios/`: `SetCore` (Swift-Paket: Detektor, Entzerren, Klassifikator, Tracking, Set-Suche – 1:1 wie `setcards/live.py`), `SetSolver` (SwiftUI-App: Kamera im Hochformat mit Umschalter 1×/0.5×, Rahmen, Sets, Tippen = nächstes Set). Xcode-Projekt aus `ios/project.yml` mit XcodeGen; Apple-Team lokal in `ios/Local.xcconfig`.
+- Modelle: `.venv-coreml/bin/python scripts/export_coreml.py` (eigene Umgebung mit Python 3.12, da coremltools Python 3.14 nicht unterstützt) schreibt `ios/Models/*.mlpackage` und prüft gegen PyTorch. Detektor bewusst mit dem normalen Ausgabezweig + NMS in der App: Der NMS-freie YOLO26-Zweig liefert andere Ecken (Median 3 % Abweichung).
+- Gegenprobe: CoreML vs. PyTorch Ecken Median 0,13 %, 169/170 gleiche Labels; Swift-Kern am Mac (`swift run -c release setcheck <Bilder>`) vs. Python: gleiche Sets in 24/24 echten Bildern, gleiche Karten in 23/24 (eine Randkarte knapp an der 0,9-Schwelle). 18 ms pro Bild am Mac, ca. 30 fps auf dem iPhone.
+- Kostenlose Apple-ID: App läuft 7 Tage, dann in Xcode neu aufspielen. Modell-Update: Export-Skript, dann in Xcode „Run“.
+
 ## Offene Fragen
 
-- iOS oder Android? Das entscheidet zwischen CoreML/Swift, TFLite/Kotlin oder Flutter für beides.
 - Lizenz der Roboflow-Datensätze klären.
 
 Vergleichsmaßstab: Die iOS-App SET Detector (https://klukacsy.github.io/SET-detector.github.io) arbeitet ebenfalls zweistufig: erst Karten finden, dann jede Karte einzeln klassifizieren.

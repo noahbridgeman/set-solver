@@ -12,6 +12,7 @@
 		80C36DB1C26AA39766843009 /* SetCore in Frameworks */ = {isa = PBXBuildFile; productRef = 357160538058B58AA644406B /* SetCore */; };
 		962897ECED2F2D6D9DFB8625 /* SetClassifier.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = 894992FAEA52EDC6F81B55E3 /* SetClassifier.mlpackage */; };
 		A088222A3C1DCBBE26AC4781 /* SetSolverApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E32748E1534FE2C3B15B6C1C /* SetSolverApp.swift */; };
+		C2AC4AC78CA075BC01254A39 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 973E54E6E4597E7883E90696 /* Assets.xcassets */; };
 		D37D12A9185B2DF77D2CBD50 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1281FB6EDA44240A5C1BA2E /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
@@ -22,8 +23,10 @@
 		85474E06A799EE6D4EF48752 /* SetCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SetCore; path = SetCore; sourceTree = SOURCE_ROOT; };
 		894992FAEA52EDC6F81B55E3 /* SetClassifier.mlpackage */ = {isa = PBXFileReference; path = SetClassifier.mlpackage; sourceTree = "<group>"; };
 		91DAFF152C4BE863F2E9B820 /* SetDetector.mlpackage */ = {isa = PBXFileReference; path = SetDetector.mlpackage; sourceTree = "<group>"; };
+		973E54E6E4597E7883E90696 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E1281FB6EDA44240A5C1BA2E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		E32748E1534FE2C3B15B6C1C /* SetSolverApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetSolverApp.swift; sourceTree = "<group>"; };
+		"TEMP_55016F3D-AD03-422B-84EB-A59F01978619" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,12 +79,21 @@
 		B66A106436C8BA62793E9D6A /* SetSolver */ = {
 			isa = PBXGroup;
 			children = (
+				973E54E6E4597E7883E90696 /* Assets.xcassets */,
 				4CFC28007F435FEE4687D88F /* CameraModel.swift */,
 				E1281FB6EDA44240A5C1BA2E /* ContentView.swift */,
 				6588ECF95886BF066B39795F /* Info.plist */,
 				E32748E1534FE2C3B15B6C1C /* SetSolverApp.swift */,
 			);
 			path = SetSolver;
+			sourceTree = "<group>";
+		};
+		"TEMP_A1B6391D-12C3-40E0-897D-9935C0A6415A" /* ios */ = {
+			isa = PBXGroup;
+			children = (
+				"TEMP_55016F3D-AD03-422B-84EB-A59F01978619" /* Signing.xcconfig */,
+			);
+			path = ios;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -92,6 +104,7 @@
 			buildConfigurationList = D215A5EAEC1D9F1EA3F321C8 /* Build configuration list for PBXNativeTarget "SetSolver" */;
 			buildPhases = (
 				BE8B12D09018323E92AEFA44 /* Sources */,
+				F00CC4357687ECA33A004B10 /* Resources */,
 				8F2B173AB69AAF1A2C9A50B7 /* Frameworks */,
 			);
 			buildRules = (
@@ -142,6 +155,17 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		F00CC4357687ECA33A004B10 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2AC4AC78CA075BC01254A39 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		BE8B12D09018323E92AEFA44 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -160,6 +184,7 @@
 /* Begin XCBuildConfiguration section */
 		2B816E1D7187E97D6B3EC2B4 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = "TEMP_55016F3D-AD03-422B-84EB-A59F01978619" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -265,6 +290,7 @@
 		};
 		99F6144F28A246CE868D152B /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = "TEMP_55016F3D-AD03-422B-84EB-A59F01978619" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
