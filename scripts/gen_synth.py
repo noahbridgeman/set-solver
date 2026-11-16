@@ -163,7 +163,7 @@ def main() -> None:
 
     t0 = time.time()
     n_rows, n_lab, idx = 0, 0, range(args.start, args.start + args.n)
-    with Pool(args.workers, initializer=_init, initargs=(args,)) as pool:
+    with Pool(args.workers, initializer=_init, initargs=(args,), maxtasksperchild=40) as pool:
         for k, (split, nl, r) in enumerate(pool.imap_unordered(_scene, idx, chunksize=4), 1):
             for row in r:
                 writers[row[0]].writerow(row[1:])

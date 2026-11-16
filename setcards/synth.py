@@ -415,6 +415,13 @@ def render_scene(rng: np.random.Generator, bgs: Backgrounds, g: dict | None = No
         span = max(np.ptp(pr[:, 0]) / W, np.ptp(pr[:, 1]) / H)
         dist = float(np.clip(dist * span / fill, 120, 4000))
     cam = make_camera(W, H, target, dist, tilt, azim, roll, hfov)
+    # Alle Karten müssen deutlich vor der Kamera liegen (sonst explodiert die Projektion,
+    # bei flachem Winkel und Nahaufnahme kam das vor -> Speicherüberlauf)
+    for _ in range(20):
+        if not poses or ((world - cam.C) @ cam.R.T)[:, 2].min() >= 100:
+            break
+        dist *= 1.25
+        cam = make_camera(W, H, target, dist, tilt, azim, roll, hfov)
 
     img = bgs.sample(H, W, rng)
     light_dir = np.array([rng.normal(0, 0.5), rng.normal(0, 0.5), 1.0])
@@ -483,7 +490,7 @@ def render_scene(rng: np.random.Generator, bgs: Backgrounds, g: dict | None = No
         shade = np.clip((n @ light_dir) / light_dir[2], 0.6, 1.3)[..., None]
 
         # Schlagschatten auf den Untergrund
-        sh = cv2.GaussianBlur(a, (0, 0), max(1.0, scale * rng.uniform(0.5, 2.0)))
+        sh = cv2.GaussianBlur(a, (0, 0), float(np.clip(scale * rng.uniform(0.5, 2.0), 1.0, 0.05 * max(W, H))))
         off = (light_dir[:2] / light_dir[2]) * scale * (1 + p.z0 + max(p.bend, 0)) * -1
         M = np.float32([[1, 0, off[0]], [0, 1, off[1]]])
         sh = cv2.warpAffine(sh, M, (sh.shape[1], sh.shape[0]))
