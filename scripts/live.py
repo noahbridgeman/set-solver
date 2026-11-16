@@ -40,6 +40,8 @@ def list_cameras() -> None:
     print("\nOpenCV-Indizes (Reihenfolge kann abweichen):")
     for i in range(6):
         cap = cv2.VideoCapture(i, cv2.CAP_AVFOUNDATION)
+        if not cap.isOpened():  # Indizes sind lückenlos -> beim ersten Fehlschlag aufhören
+            break
         if cap.isOpened():
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
