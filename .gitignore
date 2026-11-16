@@ -14,3 +14,9 @@ runs/
 data/raw/
 # vortrainierte Startgewichte, lädt ultralytics automatisch
 yolo26n-pose.pt
+.venv-coreml/
+# iOS
+ios/SetCore/.build/
+ios/SetCore/.swiftpm/
+xcuserdata/
+*.xcuserstate

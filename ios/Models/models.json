@@ -1,0 +1,8 @@
+{
+  "detector": "detector_v2.pt",
+  "classifier": "classifier_v2.pt",
+  "det_input": [
+    384,
+    640
+  ]
+}
