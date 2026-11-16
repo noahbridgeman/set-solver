@@ -365,11 +365,36 @@ def scene_setup(rng: np.random.Generator) -> tuple[int, int, list[CardPose]]:
     return W, H, poses
 
 
+def depth_of_field(img: np.ndarray, cam: Camera, rng, sigma_max: float, levels: int = 5) -> np.ndarray:
+    """Unschärfe wächst mit dem Abstand (in 1/Entfernung) zur Fokusebene auf dem Tisch (z = 0)."""
+    H, W = img.shape[:2]
+    ys, xs = np.mgrid[0:H:8, 0:W:8].astype(np.float64)
+    d = cam.rays(xs, ys)
+    dz = np.minimum(d[..., 2], -1e-3)              # Strahlen über dem Horizont -> sehr weit weg
+    inv = np.clip(-dz / max(cam.C[2], 1.0), 1e-6, None)   # 1/Entfernung bis zum Tisch
+    focus = float(np.quantile(inv, rng.uniform(0.2, 0.8)))
+    blur = np.abs(inv - focus) / max(focus, 1e-6)
+    blur = np.clip(blur / max(np.quantile(blur, 0.95), 1e-6), 0, 1)
+    blur = cv2.resize(blur.astype(np.float32), (W, H), interpolation=cv2.INTER_LINEAR) * (levels - 1)
+    stack = [img] + [cv2.GaussianBlur(img, (0, 0), sigma_max * k / (levels - 1)) for k in range(1, levels)]
+    lo = np.floor(blur).astype(int).clip(0, levels - 2)
+    w = (blur - lo)[..., None]
+    out = np.empty_like(img)
+    for k in range(levels - 1):
+        m = lo == k
+        out[m] = (stack[k][m] * (1 - w[m]) + stack[k + 1][m] * w[m])
+    return out
+
+
 def render_scene(rng: np.random.Generator, bgs: Backgrounds, g: dict | None = None) -> SceneResult:
     g = g or load_geometry()
     W, H, poses = scene_setup(rng)
     # Kamera: Abstand so wählen, dass das Layout einen Zielanteil des Bildes füllt
-    tilt = np.radians(min(abs(rng.normal(0, 25)), 58))
+    # v2: ein gutes Drittel der Szenen mit flachem Blick über den Tisch (Live-Test: 65-75° kamen vor)
+    if rng.random() < 0.35:
+        tilt = np.radians(rng.uniform(40, 78))
+    else:
+        tilt = np.radians(min(abs(rng.normal(0, 25)), 58))
     azim, roll = rng.uniform(0, 2 * np.pi), rng.uniform(0, 2 * np.pi)
     hfov = rng.uniform(50, 75)
     if poses:
@@ -379,7 +404,8 @@ def render_scene(rng: np.random.Generator, bgs: Backgrounds, g: dict | None = No
     else:
         target, ext = np.zeros(3), 300.0
     target = target + np.r_[rng.normal(0, 0.12 * ext, 2), 0]
-    fill = rng.uniform(0.5, 1.15)
+    # v2: ein Viertel der Szenen nah dran, Karten am Bildrand angeschnitten
+    fill = rng.uniform(1.2, 2.3) if rng.random() < 0.25 else rng.uniform(0.5, 1.15)
     dist = 600.0
     for _ in range(3):
         cam = make_camera(W, H, target, dist, tilt, azim, roll, hfov)
@@ -500,6 +526,9 @@ def render_scene(rng: np.random.Generator, bgs: Backgrounds, g: dict | None = No
 
     # ---------------- Kamera
     s = W / 1920
+    # v2: Tiefenunschärfe bei schrägem Blick (Schärfe nur in einer Entfernung)
+    if tilt > np.radians(30) and rng.random() < 0.5:
+        img = depth_of_field(img, cam, rng, sigma_max=rng.uniform(2, 9) * s)
     if rng.random() < 0.7:
         img = cv2.GaussianBlur(img, (0, 0), float(np.clip(abs(rng.normal(0, 0.8)) * s * 1.5, 0.3, 3.0)))
     if rng.random() < 0.15:

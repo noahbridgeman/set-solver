@@ -163,8 +163,10 @@ class FrameResult:
 
 
 class LivePipeline:
-    def __init__(self, recognizer: Recognizer, min_conf: float = 0.8, min_hits: int = 2, max_misses_show: int = 2):
+    def __init__(self, recognizer: Recognizer, min_conf: float = 0.8, min_hits: int = 2, max_misses_show: int = 2,
+                 edge_margin: float = 0.015):
         self.rec = recognizer
+        self.edge_margin = edge_margin
         self.tracker = Tracker(min_conf=min_conf, confirm_frames=min_hits)
         self.min_conf, self.min_hits, self.max_misses_show = min_conf, min_hits, max_misses_show
 
@@ -174,13 +176,18 @@ class LivePipeline:
         t1 = time.perf_counter()
         probs = self.rec.classify(frame, kps)
         t2 = time.perf_counter()
+        # Karten am Bildrand sind oft angeschnitten; der Detektor rät die fehlenden Ecken dann, auch
+        # innerhalb des Bildes. Deshalb gilt eine Karte nur als vollständig, wenn alle Ecken einen
+        # Mindestabstand zum Rand haben.
         h, w = frame.shape[:2]
-        tol = np.array([_short_edge(k) * 0.02 for k in kps]).reshape(-1, 1)
+        m = self.edge_margin * min(h, w)
         x, y = kps[..., 0], kps[..., 1]
-        valid = ((x >= -tol) & (x <= w - 1 + tol) & (y >= -tol) & (y <= h - 1 + tol)).all(1)
+        valid = ((x >= m) & (x <= w - 1 - m) & (y >= m) & (y <= h - 1 - m)).all(1)
         tracks = self.tracker.update(kps, probs, valid)
         cards = [t for t in tracks if t.confirmed and t.misses <= self.max_misses_show]
-        sets = find_sets([c.label for c in cards])
+        # Sets nur aus Karten, die gerade sicher erkannt sind (gelbe Karten zählen nicht)
+        sure = [i for i, c in enumerate(cards) if c.confidence >= self.min_conf]
+        sets = [tuple(sure[i] for i in s) for s in find_sets([cards[i].label for i in sure])]
         return FrameResult(cards, sets, {"det": t1 - t0, "cls": t2 - t1})
 
 
